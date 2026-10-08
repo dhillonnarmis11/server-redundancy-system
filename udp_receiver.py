@@ -8,11 +8,29 @@ PORT = 5051
 
 udp_socket.bind((HOST, PORT))
 
+udp_socket.settimeout(2)
+
 print("UDP receiver is waiting...")
 
+missed_heartbeats = 0
+MAX_MISSED = 3
 
-data, address = udp_socket.recvfrom(1024)
+while True:
+    try:
+        data, address = udp_socket.recvfrom(1024)
 
-print(f"Received: {data.decode()}")
-print(f"Sender address: {address}")
+        message = data.decode()
+
+        if message == "ALIVE":
+            missed_heartbeats = 0
+            print(f"Heartbeat received. Counter reset.")
+
+    except socket.timeout:
+        missed_heartbeats += 1
+
+        print(f"Missed heartbeat: {missed_heartbeats}/{MAX_MISSED}")
+
+        if missed_heartbeats >= MAX_MISSED:
+            print("ALERT: PRIMARY SERVER FAILURE DETECTED!")
+            break
 
