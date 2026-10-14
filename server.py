@@ -1,4 +1,26 @@
 import socket
+import threading
+import time
+
+# first, define the heartbeat function
+def send_heartbeats():
+    udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+    while True:
+        udp_socket.sendto(b"ALIVE", ("127.0.0.1", 5051))
+
+        print("Primary: Heartbeat sent")
+
+        time.sleep(1)
+
+# second, create and start the heartbeat thread
+heartbeat_thread = threading.Thread(
+    target=send_heartbeats,
+    daemon=True
+)
+
+heartbeat_thread.start()
+
 
 # create me a network communciation object -> using IPv4 -> using TCP
 # created TCP socket
@@ -12,7 +34,7 @@ HOST = "127.0.0.1"    # localhost/loopback address
 # program that recieves requests on the local network
 PORT = 5050
 
-# attach this socket to 127.0.0.1, port 5000
+# attach this socket to 127.0.0.1, port 5050
 server_socket.bind((HOST, PORT))
 
 print(f"Server bound to {HOST}:{PORT}")
@@ -20,7 +42,7 @@ print(f"Server bound to {HOST}:{PORT}")
 # socket now allowed to recieve incoming TCP connection requests/now ready for incoming TCP connections
 server_socket.listen()
 
-print(f"Server is listening on {HOST}:{PORT}")
+print(f"Primary TCP Server is listening on {HOST}:{PORT}")
 
 while True:
 
@@ -39,7 +61,7 @@ while True:
 
     # send client response back
     response = "Hello Client!"
-    connection.send(response.encode())
+    connection.sendall(response.encode())
 
     connection.close()
 

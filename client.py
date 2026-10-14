@@ -9,7 +9,7 @@ HOST = "127.0.0.1"
 # which program/service on that computer
 PORT = 5050
 
-# connect clien to server
+# connect client to server
 client_socket.connect((HOST, PORT))
 print("Connected to server!")
 
