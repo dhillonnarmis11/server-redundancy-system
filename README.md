@@ -45,49 +45,107 @@ Install test dependencies:
 python3 -m pip install -r requirements.txt
 ```
 
-## Run the system manually
+## How to run the project
 
-Open three terminals in the project folder:
+All commands below should be run **from the project root** (the folder containing `server.py`). You need Python 3.10+ and three terminal windows for manual testing.
 
-**Terminal 1 — primary**
+### 1. Install the test dependency
 
 ```bash
-python3 server.py
+python3 -m pip install -r requirements.txt
 ```
 
-**Terminal 2 — backup monitor**
+### 2. Run the complete system (three terminals)
+
+**Terminal 1 — backup heartbeat receiver:**
 
 ```bash
 python3 udp_receiver.py
 ```
 
-**Terminal 3 — client**
+The backup listens for UDP heartbeats on `127.0.0.1:5051`. **Start the primary promptly**: this simple monitor can promote itself if no heartbeats arrive for about six seconds, even if the primary was never started.
+
+**Terminal 2 — primary TCP server and heartbeat sender:**
+
+```bash
+python3 server.py
+```
+
+The primary listens for TCP connections on port `5050` and sends UDP `ALIVE` heartbeats every second to port `5051`. Terminal 1 should show received heartbeats.
+
+**Terminal 3 — TCP client:**
 
 ```bash
 python3 client.py
 ```
 
-Expected normal response: `Hello from PRIMARY!`
+Expected output includes:
 
-To simulate a primary failure, press **Ctrl+C** in Terminal 1. After the backup detects missed heartbeats and starts its TCP listener on port `5052`, run the client again. Expected response: `Hello from NEW PRIMARY!` The client also retries the backup if it has not promoted yet.
+```text
+Connected to PRIMARY server!
+PRIMARY says: Hello from PRIMARY!
+```
 
-**Important:** Start the primary before the backup, or start them close together. This basic backup monitor can promote even if the primary has never been observed alive.
+The client sends one request and exits. Run it again to make another request.
 
-For standalone heartbeat testing, run `udp_receiver.py` and `udp_sender.py` instead of the primary. Stop the sender to simulate lost heartbeats. **Do not run `udp_sender.py` during a primary-failure test** because it can keep the backup from promoting.
+### 3. Simulate primary failure and verify recovery
 
-## Automated testing
+1. Keep `udp_receiver.py` running in Terminal 1.
+2. Press **Ctrl+C** in Terminal 2 to stop `server.py`.
+3. Immediately run `python3 client.py` in Terminal 3 again.
+4. The backup should detect three consecutive two-second heartbeat timeouts and start a TCP listener on port `5052`. The client should retry and eventually receive `Hello from NEW PRIMARY!`.
 
-Run all tests from the project root:
+The exact number of client retries depends on timing. The original primary must remain stopped for this test.
+
+### 4. Run the standalone UDP sender (optional)
+
+`udp_sender.py` is a **test utility**, not part of the normal three-terminal setup. To test heartbeat detection in isolation, stop all programs and run:
+
+**Terminal 1:**
+
+```bash
+python3 udp_receiver.py
+```
+
+**Terminal 2:**
+
+```bash
+python3 udp_sender.py
+```
+
+Verify heartbeats are received, then press **Ctrl+C** in Terminal 2 to simulate heartbeat loss. **Do not run `udp_sender.py` during a primary-failure test**; it could keep the backup alive after the real primary stops.
+
+### 5. Run automated tests
+
+**Stop all manually started programs first**, so pytest can use ports `5050`, `5051`, and `5052` without conflicts.
+
+From the project root, run **all tests**:
 
 ```bash
 python3 -m pytest -v
 ```
 
-Run just the failure-injection tests:
+Or run each test file separately:
 
 ```bash
+python3 -m pytest tests/test_server.py -v
 python3 -m pytest tests/test_failover.py -v
 ```
+
+`test_server.py` checks individual server response handlers. `test_failover.py` starts real subprocesses, injects primary failure, and checks backup promotion and client recovery. The complete suite currently defines **six tests**; results must be verified on your own machine.
+
+### 6. Port reference and troubleshooting
+
+| Port | Protocol | Program | Purpose |
+| --- | --- | --- | --- |
+| `5050` | TCP | `server.py` | Original primary service |
+| `5051` | UDP | `udp_receiver.py` | Receives heartbeat messages |
+| `5052` | TCP | `udp_receiver.py` after promotion | Backup TCP service |
+
+- **Address already in use:** Stop older server/receiver instances before retrying.
+- **Connection refused:** Confirm the correct server is running and the client is using the correct port.
+- **Backup promoted before primary started:** Restart the backup, then start the primary promptly.
+- **Integration test port conflict:** Stop manual server processes before running pytest.
 
 ### Test coverage
 
