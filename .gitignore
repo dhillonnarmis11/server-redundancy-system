@@ -1,9 +1,20 @@
+# Python cache files
 __pycache__/
 *.pyc
-.DS_Store
-.vscode/
+
+# Pytest cache
+.pytest_cache/
+
+# Virtual environments
 .venv/
 venv/
-logs/
-*.log
+.vscode/
 .env
+
+# Logs
+*.log
+logs/
+
+# Operating system files
+.DS_Store
+Thumbs.db
